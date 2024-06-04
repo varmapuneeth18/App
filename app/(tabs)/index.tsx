@@ -44,6 +44,7 @@ export default function HomeScreen() {
   const [state, setState] = useState('');
   const [country, setCountry] = useState('');
   const [website, setWebsite] = useState('https://www.ferroglobe.com/'); // Default value
+   // This is for git info  branch
 
   // Use the UserData interface for the stored data state
   const [storedData, setStoredData] = useState<UserData | null>(null);
