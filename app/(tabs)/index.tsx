@@ -55,7 +55,6 @@ const HomeScreen: React.FC<Props> = () => {
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-
   const loadDetails = async () => {
     try {
       const data = await AsyncStorage.getItem('userData');
