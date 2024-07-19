@@ -1,3 +1,27 @@
+// {
+//   "extends": "expo/tsconfig.base",
+//   "compilerOptions": {
+//     "strict": true,
+//     "module": "esnext",
+//     "jsx": "react-native",
+//     "esModuleInterop": true,
+//     "paths": {
+//       "@/*": [
+//         "./*"
+//       ]
+//     }
+//   },
+//   "include": [
+//     "**/*.ts",
+//     // "**/*.tsx",
+//     ".expo/types/**/*.ts",
+//     "expo-env.d.ts",
+//     "./App/**/*.ts",
+//     "./App/**/*.tsx",
+//     "./App/declarations.d.ts"
+//   ]
+// }
+
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
@@ -13,7 +37,7 @@
   },
   "include": [
     "**/*.ts",
-    "**/*.tsx",
+    "**/*.tsx",   // Ensure this line is not commented out
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "./App/**/*.ts",
