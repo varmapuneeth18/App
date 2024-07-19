@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { MD3Colors, IconButton } from 'react-native-paper';
-import { View, StyleSheet, ScrollView, Text, ImageBackground  } from 'react-native';
-import { Button, Dialog, Portal, Provider as PaperProvider, TextInput, Menu} from 'react-native-paper';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, StyleSheet, ScrollView, Text, ImageBackground, Alert, TouchableOpacity } from 'react-native';
+import { Button, Dialog, Portal, Provider as PaperProvider, TextInput, Menu } from 'react-native-paper';
 import QRCode from 'react-native-qrcode-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// import bgImg from '../../assets/images/bgImage.png'; // Use require instead of import
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import { captureRef } from 'react-native-view-shot';
 const bgImg = require('../../assets/images/bgImage.png'); // Dynamic require for image
-
-
-
 
 // Define an interface for the user data
 interface UserData {
@@ -34,6 +32,8 @@ export default function HomeScreen() {
   const [hasData, setHasData] = useState(false);
   const [qrValue, setQRValue] = useState('');
   const [isQRVisible, setIsQRVisible] = useState(false);
+  const [emailMenuVisible, setEmailMenuVisible] = useState(false);
+  const qrCodeRef = useRef(null); // Reference to the QR code component
 
   // State variables to store form data
   const [firstName, setFirstName] = useState('');
@@ -172,185 +172,199 @@ END:VCARD
     }
   };
 
-  const [emailMenuVisible, setEmailMenuVisible] = useState(false);
+  const shareQRCode = async () => {
+    try {
+      const uri = await captureRef(qrCodeRef, {
+        format: 'png',
+        quality: 1.0,
+      });
+
+      await Sharing.shareAsync(uri);
+    } catch (error) {
+      console.error('Error sharing QR code', error);
+      Alert.alert('Error', 'Failed to share QR code.');
+    }
+  };
 
   return (
     <PaperProvider>
       <ImageBackground source={bgImg} style={styles.backgroundImage}>
-      <View style={styles.container}>
-        {isQRVisible && (
-          <View style={styles.qrCode}>
-            <QRCode
-              value={qrValue}
-              size={200}
-              color="black"
-              backgroundColor="white"
-			  logo={{uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y+mAAABHVBMVEVHcEwPdbUKc7gGg8d1p3sKgsYNe7wkiL0ViMoTfsDCySsQgcMHcbeLv0U4rcsLcrgKcrcKcbeMv0P4zgT/zwXdxRq/xy7/0QONwEIMd7z0zRKStVtdr4suquMlqeVWoZ//zwZChpQuqeEIcbktquImirUskK0GgsYIcbf/zwOLwEPqWif/0gDvWSMAb7soqeMGfcFGrUsOh7cIdLrtyhEFZafSXjT9vgU4gqIYgKP2oxR1lHuZsj8Hcq9Ap1vLvjQ7rckDWJaXbGfFYD7Vdy4rlINytWmusE/HjDLtaCT2hhMnfLLvcyF3Z3dytpxgiX/Hw1SOwD4aj5Q3nnD6ywIBUY6DvVSTqVG3ZVE1a5bbXDKNu4ZMlI2MV1kVUYjWBd/FAAAAJ3RSTlMAbt3EBeKCCxs7J/zqcva2ufPsWO/oQs3Hqoa1z2/lcqncrreuyMjnMWjgAAABtUlEQVQokW3SaVuCQBAAYFAS8HjserrU7mKXQwElPMIzNS3z6D7//89odsBIa76gvI4zuzMcF4YoHRzIIvc3BEnOne6/95MnvCwt/kCQc8f7hUKzUfrIk2Q6tpCfyhZYvFPa9/KEkAgfWnznqQnWnFBaGjMkEfmnkYw67QHelSikVlBXpaBgal1V1TtMpHqphkhiftktZupTExMpbZRR13i/oIrRm6DRhxpmYlkh5dvldfUBUWepRYhdkROzgWmDqo9uzcRYkTjxvDcFu9I0beDqVKfVYVvBYBj9CEzTbl3dHQ6MdiJEuxeYYQyrt/B4+YVK7cpgpF20Xy/gk9G5CbHccCHh7WUE75bxrA9duNdjG76bgMbbyCmapo8ZdjH682xmIxra55dD4KDsKMIeHm5cqd9X2N92Rq+PLbwiuAQuvs10lu9a9a7daZcTpNUKp7axCbPw8pW6ZdXLrBPn0WMXL+BY9jb1Bkyia1kW60oxW05xPjIufqg/A3r3ASqe8zNsmOg2Tng2R9MJ1wTKHjGEVB+VSFAwWM1YOkmgJ4Yr0djSasNS8+lk106ASP9tvSjziznfYTRlOprKdT4AAAAASUVORK5CYII=' }}
-              logoSize={50}
-              logoBackgroundColor='white'
-          
-            />
-            <Text style={styles.nameText}>{firstName} {lastName}</Text>
-          </View>
-        )}
-        <Portal>
-          <Dialog visible={visible} onDismiss={hideDialog}>
-            <Dialog.Title>Details</Dialog.Title>
-            <Dialog.Actions style={styles.dialogActions}>
-              {isEditing && <Button onPress={saveDetails} mode="contained" buttonColor="#005eb8" textColor="#ffffff">Save</Button>}
-              {!isEditing && <Button icon="pencil" onPress={enableEditing} mode="contained" buttonColor="#005eb8" textColor="#ffffff">Edit</Button>}
-              <Button onPress={hideDialog} icon="close" mode="contained" buttonColor="#005eb8" textColor="#ffffff">Close</Button>
-            </Dialog.Actions>
-            <Dialog.ScrollArea>
-              <ScrollView contentContainerStyle={styles.scrollContainer}>
-                <TextInput
-                  label="First name"
-                  value={firstName}
-                  onChangeText={(text) => handleInputChange('firstName', text, 15, setFirstName)}
-                  style={styles.input}
-                  editable={isEditing}
-                  maxLength={15}
-                  theme={{ colors: { primary: '#6200ee' } }}
-                />
-                {errors.firstName ? <Text style={styles.errorText}>{errors.firstName}</Text> : null}
-                <TextInput
-                  label="Last name"
-                  value={lastName}
-                  onChangeText={(text) => handleInputChange('lastName', text, 15, setLastName)}
-                  style={styles.input}
-                  editable={isEditing}
-                  maxLength={15}
-                  theme={{ colors: { primary: '#6200ee' } }}
-                />
-                {errors.lastName ? <Text style={styles.errorText}>{errors.lastName}</Text> : null}
-                <TextInput
-                  label="Mobile"
-                  value={mobile}
-                  onChangeText={(text) => handleInputChange('mobile', text, 13, setMobile)}
-                  style={styles.input}
-                  editable={isEditing}
-                  maxLength={13}
-                  theme={{ colors: { primary: '#6200ee' } }}
-                />
-                {errors.mobile ? <Text style={styles.errorText}>{errors.mobile}</Text> : null}
-                <View style={styles.emailContainer}>
+        <View style={styles.container}>
+          {isQRVisible && (
+            <View style={styles.qrCode} ref={qrCodeRef}>
+              <QRCode
+                value={qrValue}
+                size={200}
+                color="black"
+                backgroundColor="white"
+                logo={{uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y+mAAABHVBMVEVHcEwPdbUKc7gGg8d1p3sKgsYNe7wkiL0ViMoTfsDCySsQgcMHcbeLv0U4rcsLcrgKcrcKcbeMv0P4zgT/zwXdxRq/xy7/0QONwEIMd7z0zRKStVtdr4suquMlqeVWoZ//zwZChpQuqeEIcbktquImirUskK0GgsYIcbf/zwOLwEPqWif/0gDvWSMAb7soqeMGfcFGrUsOh7cIdLrtyhEFZafSXjT9vgU4gqIYgKP2oxR1lHuZsj8Hcq9Ap1vLvjQ7rckDWJaXbGfFYD7Vdy4rlINytWmusE/HjDLtaCT2hhMnfLLvcyF3Z3dytpxgiX/Hw1SOwD4aj5Q3nnD6ywIBUY6DvVSTqVG3ZVE1a5bbXDKNu4ZMlI2MV1kVUYjWBd/FAAAAJ3RSTlMAbt3EBeKCCxs7J/zqcva2ufPsWO/oQs3Hqoa1z2/lcqncrreuyMjnMWjgAAABtUlEQVQokW3SaVuCQBAAYFAS8HjserrU7mKXQwElPMIzNS3z6D7//89odsBIa76gvI4zuzMcF4YoHRzIIvc3BEnOne6/95MnvCwt/kCQc8f7hUKzUfrIk2Q6tpCfyhZYvFPa9/KEkAgfWnznqQnWnFBaGjMkEfmnkYw67QHelSikVlBXpaBgal1V1TtMpHqphkhiftktZupTExMpbZRR13i/oIrRm6DRhxpmYlkh5dvldfUBUWepRYhdkROzgWmDqo9uzcRYkTjxvDcFu9I0beDqVKfVYVvBYBj9CEzTbl3dHQ6MdiJEuxeYYQyrt/B4+YVK7cpgpF20Xy/gk9G5CbHccCHh7WUE75bxrA9duNdjG76bgMbbyCmapo8ZdjH682xmIxra55dD4KDsKMIeHm5cqd9X2N92Rq+PLbwiuAQuvs10lu9a9a7daZcTpNUKp7axCbPw8pW6ZdXLrBPn0WMXL+BY9jb1Bkyia1kW60oxW05xPjIufqg/A3r3ASqe8zNsmOg2Tng2R9MJ1wTKHjGEVB+VSFAwWM1YOkmgJ4Yr0djSasNS8+lk106ASP9tvSjziznfYTRlOprKdT4AAAAASUVORK5CYII=' }}
+                logoSize={50}
+                logoBackgroundColor='white'
+              />
+              <Text style={styles.nameText}>{firstName} {lastName}</Text>
+              <Button onPress={shareQRCode}  mode="contained" buttonColor="#005eb8" textColor="#ffffff">
+                Share QR Code
+              </Button>
+            </View>
+          )}
+          <Portal>
+            <Dialog visible={visible} onDismiss={hideDialog}>
+              <Dialog.Title>Details</Dialog.Title>
+              <Dialog.Actions style={styles.dialogActions}>
+                {isEditing && <Button onPress={saveDetails} mode="contained" buttonColor="#005eb8" textColor="#ffffff">Save</Button>}
+                {!isEditing && <Button icon="pencil" onPress={enableEditing} mode="contained" buttonColor="#005eb8" textColor="#ffffff">Edit</Button>}
+                <Button onPress={hideDialog} icon="close" mode="contained" buttonColor="#005eb8" textColor="#ffffff">Close</Button>
+              </Dialog.Actions>
+              <Dialog.ScrollArea>
+                <ScrollView contentContainerStyle={styles.scrollContainer}>
                   <TextInput
-                    label="Email"
-                    value={emailUsername}
-                    onChangeText={(text) => handleInputChange('emailUsername', text, 50, setEmailUsername)}
-                    style={[styles.input, styles.emailInput]}
+                    label="First name"
+                    value={firstName}
+                    onChangeText={(text) => handleInputChange('firstName', text, 15, setFirstName)}
+                    style={styles.input}
                     editable={isEditing}
-                    maxLength={50}
+                    maxLength={15}
                     theme={{ colors: { primary: '#6200ee' } }}
                   />
-                  <Menu
-                    visible={emailMenuVisible}
-                    onDismiss={() => setEmailMenuVisible(false)}
-                    anchor={
-                      <TextInput
-                        value={emailDomain}
-                        style={[styles.input, styles.emailDropdown]}
-                        editable={false}
-                        onPressIn={() => setEmailMenuVisible(true)}
-                        theme={{ colors: { primary: '#6200ee' } }}
-                      />
-                    }
-                  >
-                    <Menu.Item onPress={() => setEmailDomain('@ferroglobe.com')} title="@ferroglobe.com" />
-                    <Menu.Item onPress={() => setEmailDomain('@wvamfg.com')} title="@wvamfg.com" />
-                  </Menu>
-                </View>
-                {errors.emailUsername ? <Text style={styles.errorText}>{errors.emailUsername}</Text> : null}
-                <TextInput
-                  label="Company"
-                  value={company}
-                  onChangeText={setCompany}
-                  style={styles.input}
-                  editable={true}
-                  disabled
-                  theme={{ colors: { primary: '#6200ee' } }}
-                />
-                <TextInput
-                  label="Title"
-                  value={Title}
-                  onChangeText={setTitle}
-                  style={styles.input}
-                  editable={isEditing}
-                  theme={{ colors: { primary: '#6200ee' } }}
-                />
-                <TextInput
-                  label="Address 1"
-                  value={address1}
-                  onChangeText={(text) => handleInputChange('address1', text, 35, setAddress1)}
-                  style={styles.input}
-                  editable={isEditing}
-                  maxLength={35}
-                  theme={{ colors: { primary: '#6200ee' } }}
-                />
-                {errors.address1 ? <Text style={styles.errorText}>{errors.address1}</Text> : null}
-                <TextInput
-                  label="Address 2"
-                  value={address2}
-                  onChangeText={(text) => handleInputChange('address2', text, 35, setAddress2)}
-                  style={styles.input}
-                  editable={isEditing}
-                  maxLength={35}
-                  theme={{ colors: { primary: '#6200ee' } }}
-                />
-                {errors.address2 ? <Text style={styles.errorText}>{errors.address2}</Text> : null}
-                <TextInput
-                  label="City"
-                  value={city}
-                  onChangeText={(text) => handleInputChange('city', text, 20, setCity)}
-                  style={styles.input}
-                  editable={isEditing}
-                  maxLength={20}
-                  theme={{ colors: { primary: '#6200ee' } }}
-                />
-                {errors.city ? <Text style={styles.errorText}>{errors.city}</Text> : null}
-                <TextInput
-                  label="State"
-                  value={state}
-                  onChangeText={(text) => handleInputChange('state', text, 20, setState)}
-                  style={styles.input}
-                  editable={isEditing}
-                  maxLength={20}
-                  theme={{ colors: { primary: '#6200ee' } }}
-                />
-                {errors.state ? <Text style={styles.errorText}>{errors.state}</Text> : null}
-                <TextInput
-                  label="ZIP"
-                  value={zip}
-                  onChangeText={(text) => handleInputChange('zip', text, 10, setZip)}
-                  style={styles.input}
-                  editable={isEditing}
-                  maxLength={10}
-                  theme={{ colors: { primary: '#6200ee' } }}
-                />
-                {errors.zip ? <Text style={styles.errorText}>{errors.zip}</Text> : null}
-                <TextInput
-                  label="Country"
-                  value={country}
-                  onChangeText={(text) => handleInputChange('country', text, 15, setCountry)}
-                  style={styles.input}
-                  editable={isEditing}
-                  maxLength={15}
-                  theme={{ colors: { primary: '#6200ee' } }}
-                />
-                {errors.country ? <Text style={styles.errorText}>{errors.country}</Text> : null}
-                <TextInput
-                  label="Website"
-                  value={website}
-                  onChangeText={setWebsite}
-                  style={styles.input}
-                  editable={true}
-                  disabled
-                  theme={{ colors: { primary: '#6200ee' } }}
-                />
-              </ScrollView>
-            </Dialog.ScrollArea>
-          </Dialog>
-        </Portal>
+                  {errors.firstName ? <Text style={styles.errorText}>{errors.firstName}</Text> : null}
+                  <TextInput
+                    label="Last name"
+                    value={lastName}
+                    onChangeText={(text) => handleInputChange('lastName', text, 15, setLastName)}
+                    style={styles.input}
+                    editable={isEditing}
+                    maxLength={15}
+                    theme={{ colors: { primary: '#6200ee' } }}
+                  />
+                  {errors.lastName ? <Text style={styles.errorText}>{errors.lastName}</Text> : null}
+                  <TextInput
+                    label="Mobile"
+                    value={mobile}
+                    onChangeText={(text) => handleInputChange('mobile', text, 13, setMobile)}
+                    style={styles.input}
+                    editable={isEditing}
+                    maxLength={13}
+                    theme={{ colors: { primary: '#6200ee' } }}
+                  />
+                  {errors.mobile ? <Text style={styles.errorText}>{errors.mobile}</Text> : null}
+                  <View style={styles.emailContainer}>
+                    <TextInput
+                      label="Email"
+                      value={emailUsername}
+                      onChangeText={(text) => handleInputChange('emailUsername', text, 50, setEmailUsername)}
+                      style={[styles.input, styles.emailInput]}
+                      editable={isEditing}
+                      maxLength={50}
+                      theme={{ colors: { primary: '#6200ee' } }}
+                    />
+                    <Menu
+                      visible={emailMenuVisible}
+                      onDismiss={() => setEmailMenuVisible(false)}
+                      anchor={
+                        <TextInput
+                          value={emailDomain}
+                          style={[styles.input, styles.emailDropdown]}
+                          editable={false}
+                          onPressIn={() => setEmailMenuVisible(true)}
+                          theme={{ colors: { primary: '#6200ee' } }}
+                        />
+                      }
+                    >
+                      <Menu.Item onPress={() => setEmailDomain('@ferroglobe.com')} title="@ferroglobe.com" />
+                      <Menu.Item onPress={() => setEmailDomain('@wvamfg.com')} title="@wvamfg.com" />
+                    </Menu>
+                  </View>
+                  {errors.emailUsername ? <Text style={styles.errorText}>{errors.emailUsername}</Text> : null}
+                  <TextInput
+                    label="Company"
+                    value={company}
+                    onChangeText={setCompany}
+                    style={styles.input}
+                    editable={true}
+                    disabled
+                    theme={{ colors: { primary: '#6200ee' } }}
+                  />
+                  <TextInput
+                    label="Title"
+                    value={Title}
+                    onChangeText={setTitle}
+                    style={styles.input}
+                    editable={isEditing}
+                    theme={{ colors: { primary: '#6200ee' } }}
+                  />
+                  <TextInput
+                    label="Address 1"
+                    value={address1}
+                    onChangeText={(text) => handleInputChange('address1', text, 35, setAddress1)}
+                    style={styles.input}
+                    editable={isEditing}
+                    maxLength={35}
+                    theme={{ colors: { primary: '#6200ee' } }}
+                  />
+                  {errors.address1 ? <Text style={styles.errorText}>{errors.address1}</Text> : null}
+                  <TextInput
+                    label="Address 2"
+                    value={address2}
+                    onChangeText={(text) => handleInputChange('address2', text, 35, setAddress2)}
+                    style={styles.input}
+                    editable={isEditing}
+                    maxLength={35}
+                    theme={{ colors: { primary: '#6200ee' } }}
+                  />
+                  {errors.address2 ? <Text style={styles.errorText}>{errors.address2}</Text> : null}
+                  <TextInput
+                    label="City"
+                    value={city}
+                    onChangeText={(text) => handleInputChange('city', text, 20, setCity)}
+                    style={styles.input}
+                    editable={isEditing}
+                    maxLength={20}
+                    theme={{ colors: { primary: '#6200ee' } }}
+                  />
+                  {errors.city ? <Text style={styles.errorText}>{errors.city}</Text> : null}
+                  <TextInput
+                    label="State"
+                    value={state}
+                    onChangeText={(text) => handleInputChange('state', text, 20, setState)}
+                    style={styles.input}
+                    editable={isEditing}
+                    maxLength={20}
+                    theme={{ colors: { primary: '#6200ee' } }}
+                  />
+                  {errors.state ? <Text style={styles.errorText}>{errors.state}</Text> : null}
+                  <TextInput
+                    label="ZIP"
+                    value={zip}
+                    onChangeText={(text) => handleInputChange('zip', text, 10, setZip)}
+                    style={styles.input}
+                    editable={isEditing}
+                    maxLength={10}
+                    theme={{ colors: { primary: '#6200ee' } }}
+                  />
+                  {errors.zip ? <Text style={styles.errorText}>{errors.zip}</Text> : null}
+                  <TextInput
+                    label="Country"
+                    value={country}
+                    onChangeText={(text) => handleInputChange('country', text, 15, setCountry)}
+                    style={styles.input}
+                    editable={isEditing}
+                    maxLength={15}
+                    theme={{ colors: { primary: '#6200ee' } }}
+                  />
+                  {errors.country ? <Text style={styles.errorText}>{errors.country}</Text> : null}
+                  <TextInput
+                    label="Website"
+                    value={website}
+                    onChangeText={setWebsite}
+                    style={styles.input}
+                    editable={true}
+                    disabled
+                    theme={{ colors: { primary: '#6200ee' } }}
+                  />
+                </ScrollView>
+              </Dialog.ScrollArea>
+            </Dialog>
+          </Portal>
         <Button onPress={showFormDialog} style={styles.button} 
         mode="contained" 
         buttonColor="#005eb8"
